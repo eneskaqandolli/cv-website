@@ -32,5 +32,5 @@ jobs:
           push: true
           build-args: APP_VERSION=${{ env.TAG }}
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/cv-website:${{ env.TAG }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/cv-website:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/cv-website:${{ env.TAG }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/cv-website:latest
