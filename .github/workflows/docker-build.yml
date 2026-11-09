@@ -8,13 +8,19 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
 
     steps:
       - name: Get the code
         uses: actions/checkout@v6
 
       - name: Create a version tag from the commit
-        run: echo "TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+        id: version
+        run: |
+          TAG="sha-${GITHUB_SHA::7}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -34,3 +40,31 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/cv-website:${{ env.TAG }}
             ${{ secrets.DOCKER_HUB_USERNAME }}/cv-website:latest
+
+  update-helm-chart:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get the Helm chart repo
+        uses: actions/checkout@v6
+        with:
+          repository: eneskaqandolli/cv-website-helmchart
+          token: ${{ secrets.HELM_REPO_TOKEN }}
+
+      - name: Update the image tag in values.yaml
+        run: |
+          sed -i "s/^  tag: .*/  tag: ${{ needs.build-and-push.outputs.tag }}/" charts/cv-website/values.yaml
+          cat charts/cv-website/values.yaml
+
+      - name: Commit and push the change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add charts/cv-website/values.yaml
+          if git diff --cached --quiet; then
+            echo "Tag is already up to date, nothing to commit."
+          else
+            git commit -m "Update cv-website image to ${{ needs.build-and-push.outputs.tag }}"
+            git push
+          fi
